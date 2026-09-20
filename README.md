@@ -7,6 +7,14 @@ The current goal is to understand how prior work designs and deploys real-world 
 
 ---
 
+## Latest Survey · September 19, 2026
+
+[ **实验部署图文调研：从装置到采集协议** ](survey/experimental_setup.md)
+
+基于《EgoTac (1).pptx》的24项研究工作，补充EgoTactile裸手/手套弱配对案例；包含16张原文截图、相机与触觉比较、同步/标定细节、真实实验和仿真的区分，以及3种候选试采方案。
+
+[论文与证据索引](survey/paper_inventory.md) · [论文索引CSV](survey/paper_inventory.csv) · [本周进展](progress/2026-09-week3.md)
+
 ## Current Research Topics
 
 ### 1. Experimental Deployment in Prior Work
@@ -72,6 +80,7 @@ The current goal is to understand how prior work designs and deploys real-world 
 - Reviewed a second batch focusing on experimental methods and related sensing pipelines.
 - Identified the need to study experimental deployment details rather than only high-level methods.
 - Started organizing prior work by camera, wearable sensing, hand configuration, and experimental protocol.
+- Added the first source-grounded experimental deployment survey with 16 figure excerpts, paper-specific protocols, camera/tactile tables, and candidate pilot setups.
 
 ### New Project Updates
 - Finger-sleeve sensing hardware has been obtained.
@@ -99,8 +108,9 @@ The current goal is to understand how prior work designs and deploys real-world 
 ---
 
 # Next Milestone
-Propose 2–3 practical candidate data-collection setups for discussion, including:
+The first survey now outlines three candidate setups. Next: confirm the available finger-sleeve and RealSense models, discuss the candidates, and run a small synchronization/calibration pilot. Candidate setups:
 
 1. Lightweight RGB-only setup
 2. RGB-D / RealSense setup
 3. Synchronized egocentric video + finger-sleeve tactile sensing setup
+
