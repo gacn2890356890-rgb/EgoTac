@@ -1,0 +1,26 @@
+﻿slug,name,ppt_slide,category,source,pdf_version,pdf_pages,evidence_pages,report_section,figure,snapshot_date
+touchanything,TouchAnything,2,人手直接采集,https://arxiv.org/abs/2605.13083,2605.13083v1,24,"3–4,15–16",3.1,Figure 2,2026-09-19 Pacific
+egopressdiff,EgoPressDiff,2,复用EgoPressure,https://arxiv.org/abs/2606.06872,2606.06872v1,5,3,3.9,—,2026-09-19 Pacific
+hope,HOPE,2,复用压力/接触数据,https://arxiv.org/abs/2608.06192,2608.06192v1,12,"4–5,8",3.9,—,2026-09-19 Pacific
+egotac,EgoTac,2,人手直接采集+混合数据,https://arxiv.org/abs/2608.15060,2608.15060v1,26,"3–4,14–15",3.2,Figure X1,2026-09-19 Pacific
+touch-and-go,Touch and Go,2,手持GelSight/两人采集,https://arxiv.org/abs/2211.12498,2211.12498v2,23,"3–4,17",3.7,Figure 6,2026-09-19 Pacific
+egophi,EgoPHI,"2,4",仿真+真实物体端验证,https://arxiv.org/abs/2608.13014,2608.13014v2,18,12–13,3.8,Figure 6,2026-09-19 Pacific
+egopressure,EgoPressure,2,裸手压力板/多相机,https://openaccess.thecvf.com/content/CVPR2025/papers/Zhao_EgoPressure_A_Dataset_for_Hand_Pressure_and_Pose_Estimation_in_CVPR_2025_paper.pdf,CVF proceedings PDF,12,4–6,3.4,Figures 3–4,2026-09-19 Pacific
+pressurevision,PressureVision,2,裸手压力板/固定相机,https://arxiv.org/abs/2203.10385,2203.10385v2,18,6–7,3.5,Figure 3(a–b),2026-09-19 Pacific
+pressurevision-plus,PressureVision++,2,完整压力/弱接触标签,https://openaccess.thecvf.com/content/WACV2024/papers/Grady_PressureVision_Estimating_Fingertip_Pressure_From_Diverse_RGB_Images_WACV_2024_paper.pdf,CVF proceedings PDF,11,3–4,3.6,Figure 3局部,2026-09-19 Pacific
+egoscale,EgoScale,4,人类/机器人对齐采集,https://arxiv.org/abs/2602.16710,2602.16710v1,22,3–4,4.1,Figure 2(a),2026-09-19 Pacific
+egohoi,EgoHOI,4,已有数据/视频生成,https://arxiv.org/abs/2603.13615,2603.13615v1,32,23,5.4,—,2026-09-19 Pacific
+dex-x,DEX-X,4,仿真→视觉触觉真机,https://arxiv.org/abs/2609.07747,2609.07747v2,22,"6–7,13–14",4.3,Figure 3,2026-09-19 Pacific
+mint,MINT,4,离线姿态/相机重建,https://arxiv.org/abs/2609.04958,2609.04958v2,10,"4,7–8",5.4,—,2026-09-19 Pacific
+facet-0,Facet-0,4,机器人F/T装配,https://arxiv.org/abs/2609.01596,2609.01596v1,28,"4–5,19–20",4.7,—,2026-09-19 Pacific
+egoh4rt,EgoH4RT,4,项目页；论文待公开,https://egoh4rt.pages.dev/,本次下载快照；版本号未提取,0,项目页,5.4,—,2026-09-19 Pacific
+tabero,Tabero,4,仿真多模态生成,https://arxiv.org/abs/2605.27886,2605.27886v1,15,3–4,5.1,Figure 2,2026-09-19 Pacific
+tactile-genesis,Tactile Genesis,4,仿真触觉/布局消融,https://arxiv.org/abs/2606.22332,2606.22332v2,24,"2,4–7",5.2,Figure 1,2026-09-19 Pacific
+ftp-1,FTP-1,4,多机器人/多传感器,https://arxiv.org/abs/2606.13102,2606.13102v2,22,"7,20",4.5,Figure 6,2026-09-19 Pacific
+vt-muse,VT-MUSE,4,机器人遥操作/真机对照,https://arxiv.org/abs/2608.21290,2608.21290v2,9,4–5,4.6,Figure 3,2026-09-19 Pacific
+umr,UMR,4,全身动作重定向,https://arxiv.org/abs/2609.02134,2609.02134v2,9,5,5.4,—,2026-09-19 Pacific
+egoengine,EgoEngine,4,人类视频→机器人,https://arxiv.org/abs/2606.12604,2606.12604v1,27,"14–15,26",4.4,Figure A.1,2026-09-19 Pacific
+dex-flow,DexFlow,5,几何重定向/仿真,https://arxiv.org/abs/2505.01083,2505.01083v1,7,3–6,5.3,—,2026-09-19 Pacific
+reforce,REFORCE,5,人体力示范/机器人重放,https://arxiv.org/abs/2608.15560,2608.15560v1,14,"5–7,13",4.2,Figure 3,2026-09-19 Pacific
+ace-ego,ACE-Ego-Hand,6,离线视频手重建,https://arxiv.org/abs/2608.20308,2608.20308v3,25,"5,13,20",5.4,—,2026-09-19 Pacific
+egotactile,EgoTactile,补充,直接/弱配对人体采集,https://arxiv.org/abs/2606.09243,2606.09243v1,26,"4–5,12,19",3.3,Figure 2(a–d),2026-09-19 Pacific
