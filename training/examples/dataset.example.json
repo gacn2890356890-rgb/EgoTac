@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "task": "same_frame_window_estimation",
+  "data_revision": "REPLACE_WITH_YOUR_DATA_REVISION",
+  "stats_source": "PLACEHOLDER_REPLACE_WITH_TRAIN_ONLY_STATS",
+  "feature_causality": "not_verified_for_forecasting",
+  "rows": [
+    {
+      "name": "REPLACE_TRAIN_EPISODE",
+      "task": "REPLACE_TASK",
+      "split": "train",
+      "frames": 100,
+      "file": "bundles/REPLACE_TRAIN_EPISODE.pt"
+    },
+    {
+      "name": "REPLACE_VAL_EPISODE",
+      "task": "REPLACE_TASK",
+      "split": "val",
+      "frames": 100,
+      "file": "bundles/REPLACE_VAL_EPISODE.pt"
+    }
+  ],
+  "stats": {
+    "geometry_mean": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "geometry_std": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "contact_prior": [
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "positive_log_median": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "response_scale": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "train_patch_mean": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "train_patch_median": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+}

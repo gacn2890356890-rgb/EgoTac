@@ -1,0 +1,8 @@
+{
+  "purpose": "Observed original local environment, not a CUDA validation or mandatory lockfile",
+  "python": "3.12.14",
+  "torch": "2.15.0",
+  "numpy": "2.5.4",
+  "accelerator": "MPS",
+  "checkpoint_or_dataset_included": false
+}

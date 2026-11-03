@@ -1,0 +1,19 @@
+{
+  "task": "same_frame_window_estimation",
+  "condition": "global",
+  "seed": 42,
+  "width": 128,
+  "context": 40,
+  "batch_size": 8,
+  "steps": 10000,
+  "max_seconds": 14400,
+  "learning_rate": 0.0001,
+  "weight_decay": 0.03,
+  "warmup_steps": 500,
+  "gradient_clip": 1.0,
+  "validate_every": 500,
+  "log_every": 100,
+  "contact_response_threshold": 1.0,
+  "initialization": "random",
+  "backbone": "external frozen feature cache"
+}
