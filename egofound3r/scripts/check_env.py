@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import importlib
+import platform
 import sys
 from importlib import metadata
 from pathlib import Path
 
-REQUIREMENTS = Path(__file__).resolve().parents[1] / "requirements.txt"
+REPO = Path(__file__).resolve().parents[1]
+REQUIREMENTS = REPO / "requirements.txt"
+PYTHON_VERSION = (REPO / ".python-version").read_text().strip()
 IMPORTS = ["cv2", "fast_simplification", "numpy", "remotezip", "scipy", "PIL", "tomli", "torch", "torchvision", "trimesh", "pytest", "huggingface_hub"]
 OWN_MODULES = [
     "egotac.config", "egotac.data.clip", "egotac.data.dataset", "egotac.data.labels", "egotac.data.mano", "egotac.data.splits",
@@ -20,8 +23,8 @@ def main() -> None:
 
     ensure_upstream()
     problems = []
-    if sys.version_info[:2] != (3, 10):
-        problems.append(f"Python {sys.version.split()[0]}, expected 3.10")
+    if platform.python_version() != PYTHON_VERSION:
+        problems.append(f"Python {platform.python_version()}, .python-version pins {PYTHON_VERSION}")
     for line in REQUIREMENTS.read_text().splitlines():
         line = line.split("#")[0].strip()
         if "==" not in line:

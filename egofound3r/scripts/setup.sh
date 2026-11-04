@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-click install for Python 3.10: environment, pinned packages, generated config.
+# One-click install for the Python pinned in .python-version: environment, pinned packages, generated config.
 # Rerunning is safe. Works even when the system Python has no pip, ensurepip, or virtualenv.
 # Usage: bash scripts/setup.sh
 set -euo pipefail
@@ -7,12 +7,20 @@ set -euo pipefail
 
 BASE=${EGOTAC_BASE_PYTHON:-python3}
 
-version=$("$BASE" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
-if [ "$version" != "3.10" ]; then
-  echo "error: $BASE is Python $version; this environment is pinned for 3.10. Set EGOTAC_BASE_PYTHON." >&2
+pinned=$(cat "$REPO_DIR/.python-version")
+python_version() {
+  "$1" -c 'import platform; print(platform.python_version())'
+}
+version=$(python_version "$BASE")
+if [ "$version" != "$pinned" ]; then
+  echo "error: $BASE is Python $version; this environment is pinned to $pinned. Set EGOTAC_BASE_PYTHON to a $pinned interpreter." >&2
   exit 1
 fi
 
+if [ -x "$EGOTAC_VENV/bin/python" ] && [ "$(python_version "$EGOTAC_VENV/bin/python")" != "$pinned" ]; then
+  echo "error: $EGOTAC_VENV uses a different Python than $pinned. Delete it and rerun." >&2
+  exit 1
+fi
 if [ ! -x "$EGOTAC_VENV/bin/python" ]; then
   if ! "$BASE" -m venv "$EGOTAC_VENV" 2>/dev/null; then
     # Debian and Ubuntu ship Python without ensurepip unless python3-venv is installed.
