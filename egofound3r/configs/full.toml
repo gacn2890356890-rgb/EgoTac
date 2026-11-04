@@ -1,0 +1,45 @@
+# Full training following Table 5 of the paper. Edit the paths and data.weights for your cluster.
+# Effective batch 64 = batch_size 8 x 8 GPUs; keep that product if the GPU count differs.
+[model]
+upstream_config = "/data/capstone/EgoTac/configs/default.toml"
+checkpoint = "/data/capstone/EgoTac/checkpoints/EgoFound3R.pt"
+
+[data]
+clips = "/data/capstone/EgoTac/data/clips_full"
+image_size = 256
+image_mode = "center_crop"
+workers = 8
+augment = true
+
+# Sampling share per dataset. The paper does not publish its shares, so these are equal; a dataset
+# listed here must already be converted, and one that is missing stops the run at startup.
+[data.weights]
+oakink2 = 1.0
+taco = 1.0
+
+[train]
+variant = "baseline"
+output_dir = "/data/capstone/EgoTac/outputs/full_baseline"
+steps = 3200
+batch_size = 8
+lr = 2.5e-4
+lr_min = 1.0e-5
+warmup_steps = 100
+weight_decay = 0.01
+grad_clip = 1.0
+# The paper samples all strides; its proportions are unpublished. Low strides cost far more memory:
+# on a 24 GB TITAN RTX even batch 2 runs out at stride 1 and 2, so use [3, 4, 5] there.
+strides = [1, 2, 3, 4, 5]
+stride_weights = [1.0, 1.0, 1.0, 1.0, 1.0]
+log_every = 20
+save_every = 200
+eval_every = 400
+eval_batch_size = 4
+seed = 0
+
+[diffusion]
+dim = 256
+layers = 4
+heads = 8
+eval_samples = 8
+eval_steps = 10

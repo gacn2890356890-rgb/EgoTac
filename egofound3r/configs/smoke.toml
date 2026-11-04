@@ -1,0 +1,35 @@
+# Short end-to-end run, identical for both variants except train.variant and train.output_dir.
+[model]
+upstream_config = "/data/capstone/EgoTac/configs/default.toml"
+checkpoint = "/data/capstone/EgoTac/checkpoints/EgoFound3R.pt"
+
+[data]
+clips = "/data/capstone/EgoTac/data/clips_smoke"
+image_size = 256
+image_mode = "center_crop"
+workers = 4
+augment = true
+
+[train]
+variant = "baseline"
+output_dir = "/data/capstone/EgoTac/outputs/smoke_baseline"
+steps = 300
+batch_size = 2
+lr = 2.5e-4       # Table 5
+lr_min = 1.0e-5   # Table 5
+warmup_steps = 100  # Table 5
+weight_decay = 0.01  # Table 5
+grad_clip = 1.0   # Table 5
+strides = [5]     # stride 1-4 cost more memory; proportions are unpublished
+stride_weights = [1.0]
+log_every = 10
+save_every = 300
+eval_every = 150
+seed = 0
+
+[diffusion]
+dim = 256
+layers = 4
+heads = 8
+eval_samples = 8
+eval_steps = 10
