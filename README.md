@@ -7,15 +7,9 @@ The current goal is to understand how prior work designs and deploys real-world 
 
 ---
 
-## EgoFound3R · November 4, 2026
+## EgoFound3R training · November 4, 2026
 
-[EgoFound3R 原版与世界模型版的集群训练代码](egofound3r/README.md)
-
-## Training code · November 3, 2026
-
-[训练代码与启动说明](training/README.md) · [外置数据格式](training/docs/data_format.md) · [下一轮架构实验](training/docs/next_experiments.md)
-
-新增可迁移的v15触觉decoder训练/评价包，支持冻结主RGB特征、全局/手部条件、验证选模和断点恢复。数据、checkpoint、模型权重、缓存和环境均由`.gitignore`排除。当前可运行任务为窗口内同帧触觉估计，未来视觉与触觉联合预测的待实现接口在实验方案中单独说明。
+[EgoFound3R 原版与世界模型版的集群训练代码](training/egofound3r/README.md)
 
 ## Latest Survey · September 19, 2026
 

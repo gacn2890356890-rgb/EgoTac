@@ -12,7 +12,7 @@
 
 ## 世界模型版改了什么
 
-设计来自 [`training/docs/next_experiments.md`](../training/docs/next_experiments.md)：只看过去，预测未来的视觉和触觉。
+设计来自 [`next_experiments.md`](https://github.com/gacn2890356890-rgb/EgoTac/blob/71ec8b2/training/docs/next_experiments.md)：只看过去，预测未来的视觉和触觉。
 
 ```
 过去 16 帧 → EgoFound3R 官方模型 → 每只手 216 个点的特征
@@ -29,7 +29,7 @@
 
 ## 集群上怎么跑
 
-Python 写死为 3.10.12（见 `.python-version`，其他版本会直接报错），依赖版本全部写死在 `requirements.txt`，即使系统 Python 没有 pip 也能装。在仓库的 `egofound3r/` 目录下执行：
+Python 写死为 3.10.12（见 `.python-version`，其他版本会直接报错），依赖版本全部写死在 `requirements.txt`，即使系统 Python 没有 pip 也能装。在仓库的 `training/egofound3r/` 目录下执行：
 
 ```bash
 cp cluster.env.example cluster.env   # 填上大容量存储路径 EGOTAC_ROOT 和 MANO_DIR

@@ -1,3 +1,0 @@
-# Install a PyTorch build matching your accelerator, then install this package.
-torch
-numpy
