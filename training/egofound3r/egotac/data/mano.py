@@ -142,3 +142,19 @@ def marker_ids_195() -> np.ndarray:
 
     ids = marker_vertex_ids_for_count(195)
     return np.asarray(ids.cpu() if torch.is_tensor(ids) else ids, dtype=np.int64)
+
+
+def pose_points(layer: ManoLayer, root_aa: torch.Tensor, hand_aa: torch.Tensor, betas: torch.Tensor, trans: torch.Tensor, add_mean: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """One frame in the dataset's own frame, in meters: root_aa [1, 3], hand_aa [1, 45], betas [1, 10], trans [1, 3].
+
+    add_mean is smplx's flat_hand_mean=False. No centering, matching manopth center_idx=None and smplx transl.
+    """
+    pose = hand_aa + layer.hands_mean.reshape(1, 45) if add_mean else hand_aa
+    rotations = axis_angle_to_rotmat(torch.cat([root_aa, pose], dim=-1).reshape(-1, 16, 3))
+    verts, joints = layer(rotations, betas)
+    return (verts + trans[:, None])[0].detach().cpu().numpy(), (joints + trans[:, None])[0].detach().cpu().numpy()
+
+
+def pca_to_axis_angle(layer: ManoLayer, coefficients: torch.Tensor) -> torch.Tensor:
+    """smplx's use_pca: coefficients [1, K] to axis-angle [1, 45], before the mean is added."""
+    return coefficients @ layer.hands_components[: coefficients.shape[-1]]

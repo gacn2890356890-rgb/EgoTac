@@ -19,7 +19,8 @@ PAPER_TABLE_7 = {
     "arctic": (226, 434),
 }
 # Enough sequences to fill the evaluation clips. OakInk-v2 has 627 in all, which leaves exactly 62.
-TEST_SEQUENCES = {"oakink2": 62, "taco": 120}
+TEST_SEQUENCES = {"oakink2": 62, "taco": 120, "hoi4d": 70, "hot3d_aria": 30, "arctic": 40}
+# STERA-10M: every sequence trains and none evaluates (Table 7). No converter yet: its format is behind access approval.
 SUBSET_TEST_FRACTION = 0.05
 
 
@@ -27,10 +28,20 @@ def _order(dataset: str, sequences: list[str]) -> list[str]:
     return sorted(sequences, key=lambda name: hashlib.sha1(f"{dataset}:{name}".encode()).hexdigest())
 
 
-def plan_splits(dataset: str, sequences: list[str]) -> dict[str, str]:
-    """Map sequence to 'train' or 'test'. Sequences beyond the paper's size are left out."""
+def plan_splits(dataset: str, sequences: list[str], is_fixed_test=None) -> dict[str, str]:
+    """Map sequence to 'train' or 'test'. Sequences beyond the paper's size are left out.
+
+    is_fixed_test marks sequences a dataset's own protocol reserves for testing, as H2O's subject 4.
+    """
     ordered = _order(dataset, sorted(set(sequences)))
     train_count, _ = PAPER_TABLE_7[dataset]
+    if is_fixed_test is not None:
+        plan = {name: "test" for name in ordered if is_fixed_test(name)}
+        rest = [name for name in ordered if name not in plan]
+        if len(rest) < train_count:
+            print(f"warning: {dataset} has {len(rest)} training sequences, below the {train_count} planned", flush=True)
+        plan.update({name: "train" for name in rest[:train_count]})
+        return plan
     test_count = TEST_SEQUENCES[dataset]
     if len(ordered) < train_count + test_count:
         # A partial download. Still usable, but it is not the paper's size, so say so.

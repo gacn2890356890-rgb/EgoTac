@@ -33,12 +33,15 @@ def load_config(path: Path, overrides: list[str]) -> dict:
         key, _, raw = item.partition("=")
         if not raw:
             raise ValueError(f"--set expects section.key=value, got {item!r}")
-        section, _, name = key.partition(".")
+        section, *path, name = key.split(".")
         try:
             value = tomllib.loads(f"v = {raw}")["v"]
         except tomllib.TOMLDecodeError:
             value = raw
-        config.setdefault(section, {})[name] = value
+        target = config.setdefault(section, {})
+        for part in path:
+            target = target.setdefault(part, {})
+        target[name] = value
     return _expand(config)
 
 

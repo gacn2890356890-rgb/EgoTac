@@ -145,10 +145,11 @@ class MixedInfiniteSampler(Sampler):
     def __init__(self, rows: list[dict], weights: dict[str, float] | None, rank: int = 0, seed: int = 0):
         self.seed = seed + 1000 * rank
         names = sorted({row["dataset"] for row in rows})
-        missing = sorted(set(weights or {}) - set(names))
+        wanted = {name for name, weight in (weights or {}).items() if weight > 0}
+        missing = sorted(wanted - set(names))
         if missing:
             # A silently absent dataset would change the training mix without anyone noticing.
-            raise ValueError(f"data.weights lists datasets with no training clips: {missing}; found {names}")
+            raise ValueError(f"data.weights lists datasets with no training clips: {missing}; found {names}. Set a weight to 0 to train without it")
         self.indices = {name: np.array([i for i, r in enumerate(rows) if r["dataset"] == name]) for name in names}
         raw = np.array([(weights or {}).get(name, 1.0) for name in names], dtype=np.float64)
         if raw.sum() <= 0:

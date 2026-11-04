@@ -71,16 +71,48 @@ sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
 
 ## 数据
 
-现在接入的是 OakInk-v2 和 TACO，序列数按论文 Table 7：
+规模按论文 Table 7。论文的训练序列共 3335 条，加上全部 STERA-10M；评估共 2378 个窗口。
 
-| 数据集 | 训练序列 | 评估窗口 |
-|---|---|---|
-| OakInk-v2 | 565 | 400 |
-| TACO | 839 | 400 |
+| 数据集 | 训练序列 | 评估窗口 | 转换器 | 真实数据验证 |
+|---|---|---|---|---|
+| OakInk-v2 | 565 | 400 | 有，自动下载 | 跑过 1-2 条序列 |
+| TACO | 839 | 400 | 有，自动下载 | 跑过 1-2 条序列 |
+| HOI4D | 1431 | 461 | 有 | **未验证** |
+| H2O | 138 | 283 | 有 | **未验证** |
+| HOT3D Aria | 136 | 400 | 有 | **未验证** |
+| ARCTIC | 226 | 434 | 有 | **未验证** |
+| STERA-10M | 全部 | 无 | **没有** | 格式要申请权限后才能看到 |
 
-Table 7 只给数量，没给序列名，所以具体选哪些序列是我们用哈希固定的。TACO 公开了 2317 条序列，作者怎么选出 839 条没有公开。
+**未验证**的 4 个转换器是照官方文档和官方代码写的，只用合成数据测过解析和单位，没有碰过真实文件。第一次拿到数据时，先转几条并用眼睛检查：
 
-论文的另外 5 个数据集（H2O、HOT3D Aria、HOI4D、ARCTIC、STERA-10M）没有接入。要加的话，写一个转换器输出 `FrameInput`，再加进 `[data.weights]`。
+```bash
+"$EGOTAC_VENV/bin/python" -m egotac.data.convert_h2o --root "$EGOTAC_ROOT/data/h2o" --object-dir "$EGOTAC_ROOT/data/h2o/object" --output /tmp/h2o_check --mano-dir "$MANO_DIR" --limit 3
+```
+
+```bash
+"$EGOTAC_VENV/bin/python" scripts/check_clip.py <某个 .npz> check.jpg
+```
+
+点要落在手上，否则不要全量转换。
+
+### 其余数据集怎么拿
+
+放到 `$EGOTAC_ROOT/data/<文件夹>/`，`scripts/convert_all.sh` 发现文件夹就会转换。每个转换器开头写了它期望的目录结构。
+
+| 文件夹 | 怎么拿 |
+|---|---|
+| `hoi4d` | 在 [HOI4D 官网](https://hoi4d.github.io/) 申请，需要视频、手部姿态、相机参数和 CAD 模型 |
+| `h2o` | 在 [H2O 官网](https://h2odataset.ethz.ch) 注册拿账号，用官方脚本的 `--mode ego` 下载；物体网格放到 `h2o/object/` |
+| `hot3d_aria` | [Hugging Face](https://huggingface.co/datasets/bop-benchmark/hot3d) 公开，要先同意它的许可协议；需要 `train_aria/`、`object_models_eval/` 和两个 json |
+| `arctic` | 在 [ARCTIC 官网](https://arctic.is.tue.mpg.de/register.php) 注册，用官方脚本下载 `raw_seqs`、`meta` 和 `images`（`images` 全部 649 GB） |
+
+某个数据集还没拿到时，这样训练（是非论文规模）：
+
+```bash
+sbatch -p <分区> scripts/slurm_train.sbatch world --set data.weights.hoi4d=0 --set data.weights.h2o=0 --set data.weights.hot3d_aria=0 --set data.weights.arctic=0
+```
+
+官方仓库没有公开数据处理代码（[issue #1](https://github.com/MINT-SJTU/EgoFound3R/issues/1) 问过训练代码，没有回复），论文也不公开序列名单，所以这里能做到的是**数据集、数量、窗口、标签定义和论文一致**，不能保证与作者逐条相同。HOI4D 的铰接物体（如笔记本）只有手与手的接触标签，因为官方文档没有说明部件和姿态的对应关系。
 
 ## 论文没公开、由我们决定的
 

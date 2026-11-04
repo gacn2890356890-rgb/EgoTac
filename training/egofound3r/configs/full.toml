@@ -12,10 +12,15 @@ workers = 8
 augment = true
 
 # Sequence counts follow Table 7 (see egotac/data/splits.py). The paper does not publish its shares,
-# so these are equal. A dataset listed here with no clips stops the run at startup.
+# so these are equal. A dataset listed here with no clips stops the run at startup; to train without
+# one, pass --set data.weights.hoi4d=0. STERA-10M, the paper's seventh, has no converter yet.
 [data.weights]
 oakink2 = 1.0
 taco = 1.0
+hoi4d = 1.0
+h2o = 1.0
+hot3d_aria = 1.0
+arctic = 1.0
 
 [train]
 variant = "baseline"

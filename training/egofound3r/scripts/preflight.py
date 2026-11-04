@@ -57,7 +57,10 @@ def main() -> None:
             if row["split"] == "train":
                 sequences[row["dataset"]].add(row["sequence"])
         print("dataset      train seqs (paper)  train clips  test clips (paper)")
-        for dataset in config["data"].get("weights", {}):
+        for dataset, weight in config["data"].get("weights", {}).items():
+            if weight <= 0:
+                warnings.append(f"{dataset}: turned off in data.weights, so this is not the paper's data")
+                continue
             paper_train, paper_test = PAPER_TABLE_7.get(dataset, (0, 0))
             found = len(sequences[dataset])
             print(f"{dataset:12s} {found:6d} ({paper_train:5d}) {counts[dataset, 'train']:12d} {counts[dataset, 'test']:7d} ({paper_test:4d})")

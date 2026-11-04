@@ -13,7 +13,7 @@ PYTHON_VERSION = (REPO / ".python-version").read_text().strip()
 IMPORTS = ["cv2", "fast_simplification", "numpy", "remotezip", "scipy", "PIL", "tomli", "torch", "torchvision", "trimesh", "pytest", "huggingface_hub"]
 OWN_MODULES = [
     "egotac.config", "egotac.data.clip", "egotac.data.dataset", "egotac.data.labels", "egotac.data.mano", "egotac.data.splits",
-    "egotac.data.convert_oakink2", "egotac.data.convert_taco", "egohandmetric_prompt.world_model", "egotac.evaluate", "egotac.integrity",
+    "egotac.data.convert_oakink2", "egotac.data.convert_taco", "egotac.data.convert_h2o", "egotac.data.convert_hoi4d", "egotac.data.convert_arctic", "egotac.data.convert_hot3d", "egotac.data.source", "egohandmetric_prompt.world_model", "egotac.evaluate", "egotac.integrity",
     "egotac.losses", "egotac.metrics", "egotac.model", "egotac.train",
 ]
 
