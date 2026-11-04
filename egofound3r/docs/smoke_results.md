@@ -33,7 +33,7 @@
 ## 其他
 
 - `verify_original.sh`：`EgoFound3R_original` 的 80 个文件与官方 commit 一致。
-- 单元测试 28 个全部通过。
+- 单元测试 23 个全部通过。
 - `setup.sh` 在干净的 Python 3.10.12（系统自带，无 pip）和 3.10.10 上都安装成功，`pip check` 无冲突，并在 3.10.12 的新环境里重跑了这个 smoke test。集群需要 NVIDIA 驱动支持 CUDA 11.8 或 12.4。
 - 转换器：OakInk 和 TACO 各转换 1-2 条真实序列，`preflight.py` 能正确读出数量并拦下缺训练数据的情况。
 - 早先的验证（600 步、论文指标对照）记录在这个文件的 git 历史里。
