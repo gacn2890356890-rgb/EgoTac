@@ -1,8 +1,9 @@
-third_party/
+# Anchored: a bare "data/" would also ignore the egotac/data/ source package.
+/third_party/
+/data/
+/outputs/
 __pycache__/
 .pytest_cache/
 *.pt
 *.pth
 *.npz
-outputs/
-data/

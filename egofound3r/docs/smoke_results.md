@@ -14,7 +14,8 @@ This shows the pipeline works. It does not show which variant is better.
 - The baseline's contact head starts trained and the diffusion head starts from nothing, so 600 steps
   favors the baseline.
 - There are 29 OakInk windows and 51 TACO windows, from a handful of sequences. Differences of this
-  size can be noise: six steps at a near-zero learning rate moved RR-MPJPE by about 1 mm.
+  size can be noise: after only six steps at a near-zero learning rate, the two variants already differed
+  by about 1 mm RR-MPJPE on a 4-window check.
 - Geometry training is the same in both variants, yet RR-MPJPE differs by about 2 mm on OakInk. The
   diffusion loss also reaches the shared features, which may contribute, but this was not separated
   from noise.
