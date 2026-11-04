@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import pickle
 import random
 from pathlib import Path
@@ -18,11 +19,20 @@ import torch
 import trimesh
 
 from .clip import CLIP_FRAMES, HAND_RATE_HZ, ClipMeta, FrameInput, build_clip, save_clip, write_manifest
-from .convert_oakink2 import MAX_OBJECT_FACES, split_of, transform
+from .convert_oakink2 import MAX_OBJECT_FACES, transform
 from .mano import ManoLayer, axis_angle_to_rotmat, marker_ids_195
+from .splits import plan_splits
 
 HF_BASE = "https://huggingface.co/datasets/leolyliu/TACO/resolve/main/"
 MODEL_DIR = "object_models_released"
+PLAN_FILE = "sequence_plan.json"
+
+
+def _extract(archive, name: str, root: Path) -> None:
+    """Extract unless complete. A size check, because an interrupted download leaves a partial file."""
+    target = root / name
+    if not target.exists() or target.stat().st_size != archive.getinfo(name).file_size:
+        archive.extract(name, root)
 
 
 def fetch(root: Path, count: int | None, seed: int) -> None:
@@ -30,33 +40,35 @@ def fetch(root: Path, count: int | None, seed: int) -> None:
     import remotezip
 
     root.mkdir(parents=True, exist_ok=True)
+    with remotezip.RemoteZip(HF_BASE + "Egocentric_RGB_Videos.zip") as archive:
+        with_video = {str(Path(n).parent.relative_to("Egocentric_RGB_Videos")) for n in archive.namelist() if n.endswith("color.mp4")}
     with remotezip.RemoteZip(HF_BASE + "Hand_Poses.zip") as archive:
         names = [n for n in archive.namelist() if n.endswith("right_hand.pkl")]
-        sequences = sorted(str(Path(n).parent.relative_to("Hand_Poses")) for n in names)
+        sequences = sorted({str(Path(n).parent.relative_to("Hand_Poses")) for n in names} & with_video)
         if count is not None:
             random.Random(seed).shuffle(sequences)
             sequences = sorted(sequences[:count])
-        wanted = set(sequences)
+        plan = plan_splits("taco", sequences)
+        (root / PLAN_FILE).write_text(json.dumps(plan, indent=0))
+        wanted = set(plan)
         for name in archive.namelist():
             parts = Path(name).parts
-            if len(parts) >= 3 and str(Path(*parts[1:3])) in wanted and not name.endswith("/") and not (root / name).exists():
-                archive.extract(name, root)
+            if len(parts) >= 3 and str(Path(*parts[1:3])) in wanted and not name.endswith("/"):
+                _extract(archive, name, root)
     needed_models: set[str] = set()
     for zip_name, top in (("Egocentric_RGB_Videos", "Egocentric_RGB_Videos"), ("Object_Poses", "Object_Poses"), ("Egocentric_Camera_Parameters", "Egocentric_Camera_Parameters")):
         with remotezip.RemoteZip(HF_BASE + zip_name + ".zip") as archive:
             for name in archive.namelist():
                 parts = Path(name).parts
                 if len(parts) >= 3 and parts[0] == top and str(Path(*parts[1:3])) in wanted and not name.endswith("/"):
-                    if not (root / name).exists():
-                        archive.extract(name, root)
+                    _extract(archive, name, root)
                     if top == "Object_Poses":
                         needed_models.add(Path(name).stem.split("_", 1)[1])
     with remotezip.RemoteZip(HF_BASE + "Object_Models.zip") as archive:
         for model in sorted(needed_models):
             name = f"{MODEL_DIR}/{model}_cm.obj"
-            if not (root / name).exists():
-                archive.extract(name, root)
-    print(f"fetched {len(sequences)} sequences, {len(needed_models)} object models", flush=True)
+            _extract(archive, name, root)
+    print(f"fetched {len(wanted)} sequences, {len(needed_models)} object models", flush=True)
 
 
 def load_object_tris(root: Path, model: str, cache: dict) -> np.ndarray:
@@ -128,7 +140,7 @@ def convert_sequence(root: Path, output: Path, sequence: str, layers: dict, mark
         raise ValueError(f"{sequence}: video reports fps={fps}")
     step = max(1, round(fps / HAND_RATE_HZ))
     span = (CLIP_FRAMES - 1) * step
-    split = "test" if sequence in args.test_set else split_of(sequence, args.eval_fraction)
+    split = args.plan[sequence]
     hop = CLIP_FRAMES if split == "test" else args.train_hop
     safe = hashlib.sha1(sequence.encode()).hexdigest()[:16]
     starts = list(range(0, total - span, hop * step))
@@ -167,7 +179,6 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mano-dir", type=Path)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--eval-fraction", type=float, default=0.05)
     parser.add_argument("--train-hop", type=int, default=10)
     parser.add_argument("--fetch", action="store_true", help="download sequences first")
     parser.add_argument("--fetch-count", type=int, default=None, help="random subset size; default all")
@@ -185,7 +196,10 @@ def main() -> None:
     layers = {side: ManoLayer(args.mano_dir, side).to(args.device) for side in ("left", "right")}
     markers = marker_ids_195()
     sequences = sorted(str(p.parent.relative_to(args.root / "Hand_Poses")) for p in (args.root / "Hand_Poses").rglob("right_hand.pkl"))
-    args.test_set = set(random.Random(args.seed).sample(sequences, args.test_count))
+    plan_file = args.root / PLAN_FILE
+    plan = json.loads(plan_file.read_text()) if plan_file.exists() else plan_splits("taco", sequences)
+    sequences = [sequence for sequence in sequences if sequence in plan]
+    args.plan = {**plan, **{sequence: "test" for sequence in random.Random(args.seed).sample(sequences, args.test_count)}}
     index, count = (int(part) for part in args.shard.split("/"))
     cache: dict = {}
     for sequence in sequences[index::count]:

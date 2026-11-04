@@ -11,3 +11,14 @@ __pycache__/
 # The repository root ignores data/; this one is source code.
 !/egotac/data/
 !/egotac/data/**
+
+# Local environment and per-cluster settings
+/.venv/
+/workspace/
+/cluster.env
+
+# The official code ships these small data files.
+!/EgoFound3R_original/egohandmetric_prompt/data/
+!/EgoFound3R_original/egohandmetric_prompt/data/**
+!/EgoFound3R_world/egohandmetric_prompt/data/
+!/EgoFound3R_world/egohandmetric_prompt/data/**

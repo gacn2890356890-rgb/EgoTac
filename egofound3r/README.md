@@ -1,109 +1,96 @@
-# EgoFound3R training and a diffusion tactile head
+# EgoFound3R：原版与世界模型版
 
-Training and evaluation for [EgoFound3R](https://github.com/MINT-SJTU/EgoFound3R), whose official
-release is inference only, in two variants that share all code:
+同一个代码库的两个版本，用于在集群上做全量训练。
 
-- `baseline`: the original model trained with the paper's objective (Eq. 3-8, Table 5).
-- `diffusion`: the same, except the contact and distance losses (Eq. 5-6) are replaced by a
-  rectified-flow head over the 216 points of each hand.
+| 目录 | 内容 |
+|---|---|
+| `EgoFound3R_original/` | 官方代码（[MINT-SJTU/EgoFound3R](https://github.com/MINT-SJTU/EgoFound3R)，commit `264f4df`），一个字节都没改。`scripts/verify_original.sh` 可以核对。 |
+| `EgoFound3R_world/` | 同样的代码，只多了 `egohandmetric_prompt/world_model.py`，并写死了 `requirements.txt` 的版本。 |
+| `egotac/` | 两个版本共用的训练、数据和评估代码。 |
 
-The official code is not modified. The head attaches through PyTorch hooks and returns the same
-fields, so downstream code, including overlay videos, cannot tell the difference.
+**官方仓库只有推理代码**，没有训练脚本、数据加载器和数据配置：它的 `data/` 目录里只有 MANO 相关的小文件，`configs/default.toml` 只有模型和运行参数。所以 `egotac/` 是按论文（Eq. 3-8、Table 5、Table 7）补写的，不是官方代码。
 
-Measured results are in [docs/smoke_results.md](docs/smoke_results.md).
+## 世界模型版改了什么
 
-## Setup
+设计来自 [`training/docs/next_experiments.md`](../training/docs/next_experiments.md)：只看过去，预测未来的视觉和触觉。
+
+```
+过去 16 帧 → EgoFound3R 官方模型 → 每只手 216 个点的特征
+                                    ├─ 当前帧：rectified flow 生成接触和距离（替换 Eq. 5-6）
+                                    └─ 动态模块：未来查询读取过去 → 未来 latent
+                                          ├─ 未来 5 帧（0.5 s）的接触和距离
+                                          └─ 未来视觉特征（目标来自冻结的 DINO 编码器）
+```
+
+- 未来帧不会输入模型，所以不会偷看未来。
+- 推理输出的字段、形状和文件都与原版相同，只有 50 个触觉字段的数值不同（`scripts/compare_io.py` 已核对）。
+- 新增损失：`tactile_flow`、`future_flow`、`future_visual`。
+- 全量配置下可训练参数约 2.64 亿，其中头部 5266 万；原版约 2.12 亿。原版架构不改，否则加载不了官方权重。
+
+## 集群上怎么跑
+
+Python 3.10（3.10.10 和 3.10.12 都在干净环境里实测过），依赖版本全部写死在 `requirements.txt`，即使系统 Python 没有 pip 也能装。在仓库的 `egofound3r/` 目录下执行：
+
+```bash
+cp cluster.env.example cluster.env   # 填上大容量存储路径 EGOTAC_ROOT 和 MANO_DIR
+```
 
 ```bash
 bash scripts/setup.sh
 ```
 
-You also need three things this repository cannot redistribute:
-
-| File | Source |
-|---|---|
-| `EgoFound3R.pt` | [Frank-F2021/EgoFound3R](https://huggingface.co/Frank-F2021/EgoFound3R), gated, CC BY-NC-SA 4.0 |
-| `vggt_omega_1b_512.pt` | [facebook/VGGT-Omega](https://huggingface.co/facebook/VGGT-Omega) |
-| `MANO_LEFT.pkl`, `MANO_RIGHT.pkl` | [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de), requires accepting its license |
-
-The paths in `configs/` and the defaults in `scripts/` point at the `msc-vision` server. Change them,
-or set `EGOTAC_ROOT`, `EGOTAC_PYTHON`, and `EGOFOUND3R_ROOT`.
-
-## Commands
-
 ```bash
-# Original versus diffusion on the same data and steps, then a comparison table.
-IO_VIDEO=/path/to/video.mp4 bash scripts/smoke_test.sh 0 1 600
-
-# Convert datasets. Both resume when rerun.
-bash scripts/convert_oakink_full.sh /path/to/mano 6 0
-bash scripts/convert_taco_full.sh /path/to/mano 6 0
-
-# Full training, one variant per run. Rerunning resumes from latest.pt.
-bash scripts/train_full.sh baseline 8
-bash scripts/train_full.sh diffusion 8
-sbatch scripts/slurm_train.sbatch baseline
-
-# Evaluate anything, including the official weights.
-python -m egotac.evaluate --upstream-config <default.toml> --checkpoint <file.pt> \
-    [--variant diffusion] --clips <clips_root> --split test --image-size 512 --image-mode aspect
-
-# Inference on a video through the official script, with the head installed.
-python -m egotac.infer_video --tactile-checkpoint <diffusion.pt> \
-    --config <default.toml> --checkpoint <EgoFound3R.pt> --video-path <video.mp4> --output-dir <dir>
+bash scripts/download_weights.sh     # EgoFound3R.pt 需要先在 Hugging Face 申请权限
 ```
 
-A training checkpoint keeps the official layout, so the official inference scripts load it directly.
-A `diffusion` checkpoint loaded that way gives the geometry but the untrained original contact heads,
-so use `egotac.infer_video` for its tactile output.
+```bash
+sbatch -p <分区> scripts/slurm_convert.sbatch
+```
 
-## Dataset status
+```bash
+sbatch -p <分区> scripts/slurm_train.sbatch baseline
+```
 
-| Dataset | Converter | Access |
+```bash
+sbatch -p <分区> scripts/slurm_train.sbatch world
+```
+
+MANO 文件需要自己从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 下载，放到 `MANO_DIR`。`scripts/preflight.py` 会在排队前检查权重、数据和序列数，有问题直接报错。任务被抢占后重新提交会从 `latest.pt` 续训。
+
+## 训练参数
+
+`configs/full.toml` 的大部分值来自论文 Table 5：AdamW，学习率 2.5e-4 余弦衰减到 1e-5，warmup 100 步，3200 步，256x256，梯度裁剪 1.0，总 batch 64。
+
+`train.batch_size` 是每张卡的 batch，默认 8。显存不够就调小，梯度累积会自动补足总 batch 64，例如：
+
+```bash
+sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
+```
+
+实测峰值显存（TITAN RTX，stride 5，每卡 batch 2）：原版 15.9 GiB，世界模型版 19.3 GiB。stride 越小越占显存：24 GB 卡上 stride 1 和 2 在 batch 2 就会爆显存。
+
+## 数据
+
+现在接入的是 OakInk-v2 和 TACO，序列数按论文 Table 7：
+
+| 数据集 | 训练序列 | 评估窗口 |
 |---|---|---|
-| OakInk-v2 | Done, checked against the paper | Public, CC BY-SA 4.0 |
-| TACO | Done, checked against the paper | Public, CC BY 4.0 |
-| HOT3D Aria | Not written | Public mirror, under its own license agreement |
-| ARCTIC | Not written | Requires registration |
-| H2O | Not written | Requires a username and password from the authors |
-| HOI4D | Not written | Requires its own application |
-| STERA-10M | Not written | Access not confirmed |
+| OakInk-v2 | 565 | 400 |
+| TACO | 839 | 400 |
 
-A converter is written against real files and only then trusted, because a wrong convention produces
-plausible-looking labels. To add a dataset, produce `FrameInput`s and call `build_clip`, then pass both
-checks: `scripts/verify_labels.py` must show labels on the hands, and the official weights must score
-close to the paper on the converted clips. Add the dataset to `[data.weights]`; a listed dataset with
-no clips stops training at startup.
+Table 7 只给数量，没给序列名，所以具体选哪些序列是我们用哈希固定的。TACO 公开了 2317 条序列，作者怎么选出 839 条没有公开。
 
-## Values the paper does not publish
+论文的另外 5 个数据集（H2O、HOT3D Aria、HOI4D、ARCTIC、STERA-10M）没有接入。要加的话，写一个转换器输出 `FrameInput`，再加进 `[data.weights]`。
 
-These are our choices, all in `configs/` or at the top of `egotac/losses.py`:
+## 论文没公开、由我们决定的
 
-- All loss weights except `geom`, and the confidence weight `alpha`.
-- Sampling shares per dataset, and stride proportions.
-- The visibility definition: a z-buffer test against hands and objects, with tolerances of 12 mm for
-  vertices and 25 mm for joints.
-- How 256x256 is formed from a wide image. We use a center crop, which loses some off-center hands.
-- The train/test split. Sequences are assigned by hash, not the authors' split.
-- Extra terms: hand scale, root translation, and in-view. The first exists because Eq. 3 normalizes
-  scale away.
+都在 `configs/` 或 `egotac/losses.py` 的开头：除 `geom` 外的损失权重、数据集和 stride 的采样比例、可见性定义、256x256 的裁剪方式，以及世界模型的全部设计（过去 16 帧、未来 5 帧、头部规模）。
 
-## Known limits
+## 验证到哪一步
 
-- **Metric head:** `L_3R` here covers camera rotation and translation. Depth is not converted, so the
-  scene depth term and metric-scale supervision are missing. Camera-space hands do not depend on them,
-  but world-space metrics will be affected.
-- **Temporal:** the head generates each frame independently; nothing models time yet.
-- **Slurm:** `slurm_train.sbatch` has not run on a real cluster. Multi-GPU was tested on 2 GPUs, one node.
-- **Stride:** on a 24 GB GPU, stride 1 and 2 run out of memory at batch size 2, so `full.toml`'s default
-  strides need a larger GPU. Change `train.strides` otherwise.
-- **Not tested end to end:** `convert_oakink_full.sh` and `convert_taco_full.sh`. Their converters ran
-  on subsets; the streaming and full-fetch modes did not.
+结果见 [docs/smoke_results.md](docs/smoke_results.md)。
 
-## Silent memory corruption
+- **没有跑过：** 真正的全量训练、真实集群上的 Slurm（只用替身命令测过脚本）、完整数据的转换（只测过每个数据集 1-2 条序列）。
+- **没有实现：** 场景深度和尺度的监督。相机空间的手部结果不依赖它，世界坐标指标会受影响。
 
-On `msc-vision`, reading the same intact file twice gave different bytes, and a pattern test found
-flipped bits in RAM, with ECC disabled. Run `memtest86+` there. Until it is fixed, `egotac/integrity.py`
-loads weights by majority vote across reads and repairs the live copy, and training skips steps with a
-non-finite loss or gradient rather than ending the run. Each run writes `weight_integrity.json`.
-Clips and checkpoints written on that machine have no such protection.
+官方代码和权重是 CC BY-NC-SA 4.0，不可商用；权重和数据不进仓库。

@@ -31,6 +31,8 @@ DEFAULT_WEIGHTS = {
     "cam_rot": 0.1,
     "cam_trans": 0.1,
     "tactile_flow": 1.0,
+    "future_flow": 1.0,
+    "future_visual": 0.1,
 }
 
 
@@ -147,8 +149,10 @@ def total_loss(outputs: dict, batch: dict, weights: dict, variant: str, alpha: f
             smooth = F.smooth_l1_loss(outputs[f"dense_{key}_contact_log_distance"].float(), log_distance, reduction="none")
             terms["dist"] = terms.get("dist", 0.0) + _masked_mean(smooth, batch[valid])
     else:
-        # The only difference between the two variants: these replace Eq. 5 and Eq. 6.
+        # The world variant replaces Eq. 5 and Eq. 6, and adds the two future terms.
         terms["tactile_flow"] = outputs["tactile_flow_loss"]
+        terms["future_flow"] = outputs["future_flow_loss"]
+        terms["future_visual"] = outputs["future_visual_loss"]
 
     terms.update(two_d_losses(outputs, batch))
     terms["reproj"] = reprojection_loss(outputs, batch)

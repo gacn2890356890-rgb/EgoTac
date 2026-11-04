@@ -1,86 +1,39 @@
-# Smoke test results
+# Smoke test 结果
 
-Run on `msc-vision` (2 x TITAN RTX, 24 GB). Official weights versus 600 steps of fine-tuning from them,
-batch size 2, stride 5, 256x256 center crop. Training data: 117 clips from 12 OakInk-v2 sequences.
+在 `msc-vision`（2 张 TITAN RTX，24 GB）上运行，只用来确认代码能跑通，**不代表模型好坏**。
 
-- `official`: official weights, no training.
-- `baseline`: official weights plus fine-tuning, paper objective.
-- `diffusion`: same, but the tactile head starts **untrained** and replaces Eq. 5-6.
+## 训练与评估
 
-## How to read this
+20 步，每卡 batch 2，stride 5，OakInk-v2 冒烟数据，从官方权重开始。评估 13 个窗口。
 
-This shows the pipeline works. It does not show which variant is better.
+| 指标 | 原版 | 世界模型版 |
+|---|---|---|
+| 训练跑完并保存 checkpoint | 是 | 是 |
+| 评估跑完 | 是 | 是 |
+| 根相对关节误差 (mm) | 31.65 | 35.59 |
+| 接触 F1（关节） | 0.345 | 0.102 |
+| 未来 0.5 s 接触 F1 | 无此项 | 0.097 |
+| 参考：直接沿用真实的最后一帧 | 无此项 | 0.869 |
 
-- The baseline's contact head starts trained and the diffusion head starts from nothing, so 600 steps
-  favors the baseline.
-- There are 29 OakInk windows and 51 TACO windows, from a handful of sequences. Differences of this
-  size can be noise: after only six steps at a near-zero learning rate, the two variants already differed
-  by about 1 mm RR-MPJPE on a 4-window check.
-- Geometry training is the same in both variants, yet RR-MPJPE differs by about 2 mm on OakInk. The
-  diffusion loss also reaches the shared features, which may contribute, but this was not separated
-  from noise.
-- TACO was not trained on, and every number there is worse than the official weights. Fine-tuning on
-  one dataset alone costs generality, which is why full training must mix datasets.
+世界模型的头部从零开始，只训练了 20 步，所以数值低是预期内的。沿用最后一帧能到 0.869，说明 0.5 s 内接触状态大多不变；世界模型要超过这个值才算有预测能力。
 
-## Converter validation: official weights against the paper
+## 全量入口
 
-Official weights on our converted clips. This tests the converters, not the model. The sample is small,
-and these sequences may be in the authors' training set, so it checks magnitude only.
+通过 `slurm_train.sbatch` 运行 `full.toml`（`srun` 和 `scontrol` 用替身），双卡，2 步，每卡 batch 2，累积 2 次，总 batch 8。
 
-| | OakInk-v2 paper | OakInk-v2 ours | TACO paper | TACO ours |
-|---|---|---|---|---|
-| RR-MPJPE (mm) | 17.77 | 17.15 | 18.54 | 22.14 |
-| PA-MPJPE (mm) | 8.02 | 7.14 | 8.13 | 8.78 |
-| Contact precision, joints | 0.510 | 0.576 | 0.654 | 0.790 |
-| Contact recall, joints | 0.665 | 0.698 | 0.777 | 0.726 |
-| Contact F1, joints | 0.493 | 0.583 | 0.697 | 0.746 |
-| Visibility F1, joints | 0.802 | 0.831 | 0.880 | 0.816 |
-| Windows | 400 | 32 | 400 | 51 |
+| | 原版 | 世界模型版 |
+|---|---|---|
+| 可训练参数 | 211,651,846 | 264,310,536 |
+| 峰值显存 | 15.85 GiB | 19.33 GiB |
 
-"Ours" here is 512-wide inference, on held-out clips (OakInk) and a random 24-sequence subset (TACO).
+## 输入输出
 
-## Input/output contract
+官方权重加世界模型头，和原版对比同一段视频：191 个张量的名称、形状和类型全部相同，输出文件相同。50 个触觉字段的数值变了，其余字段逐位相同。
 
-Official weights with and without the head, on a real video: 191 tensors compared, with no difference in
-names, shapes, dtypes, or output files. 50 tactile tensors changed and 0 others did, bit for bit.
+## 其他
 
-## Comparison
-
-### oakink2
-
-| Metric | official | baseline | diffusion |
-|---|---|---|---|
-| RR-MPJPE (mm) | 16.90 | 17.99 | 19.92 |
-| PA-MPJPE (mm) | 7.32 | 7.50 | 7.48 |
-| RR-MPVPE (mm) | 17.96 | 18.30 | 19.09 |
-| Raw MPJPE (mm) | 83.64 | 81.83 | 99.18 |
-| Contact F1, joints | 0.461 | 0.558 | 0.469 |
-| Contact AP, joints | 0.775 | 0.825 | 0.766 |
-| Contact F1, vertices | 0.442 | 0.553 | 0.457 |
-| Contact AP, vertices | 0.725 | 0.795 | 0.747 |
-| Distance MAE all, joints (mm) | 40.07 | 42.91 | 35.83 |
-| Distance MAE GT-contact, joints (mm) | 8.80 | 10.55 | 11.13 |
-| Distance MAE all, vertices (mm) | 40.27 | 43.22 | 35.47 |
-| Distance MAE GT-contact, vertices (mm) | 8.92 | 11.18 | 10.99 |
-| Visibility F1, joints | 0.839 | 0.857 | 0.853 |
-| Visibility F1, vertices | 0.687 | 0.831 | 0.831 |
-| Windows | 29 | 29 | 29 |
-### taco
-
-| Metric | official | baseline | diffusion |
-|---|---|---|---|
-| RR-MPJPE (mm) | 24.32 | 32.05 | 31.50 |
-| PA-MPJPE (mm) | 9.62 | 12.64 | 12.52 |
-| RR-MPVPE (mm) | 22.75 | 28.84 | 29.37 |
-| Raw MPJPE (mm) | 123.31 | 126.19 | 133.97 |
-| Contact F1, joints | 0.750 | 0.595 | 0.471 |
-| Contact AP, joints | 0.817 | 0.761 | 0.747 |
-| Contact F1, vertices | 0.671 | 0.486 | 0.474 |
-| Contact AP, vertices | 0.730 | 0.695 | 0.635 |
-| Distance MAE all, joints (mm) | 20.00 | 30.00 | 24.22 |
-| Distance MAE GT-contact, joints (mm) | 5.93 | 17.11 | 16.75 |
-| Distance MAE all, vertices (mm) | 21.65 | 29.73 | 25.21 |
-| Distance MAE GT-contact, vertices (mm) | 6.84 | 18.54 | 16.74 |
-| Visibility F1, joints | 0.791 | 0.764 | 0.766 |
-| Visibility F1, vertices | 0.685 | 0.717 | 0.705 |
-| Windows | 51 | 51 | 51 |
+- `verify_original.sh`：`EgoFound3R_original` 的 80 个文件与官方 commit 一致。
+- 单元测试 28 个全部通过。
+- `setup.sh` 在干净的 Python 3.10.12（系统自带，无 pip）和 3.10.10 上都安装成功，`pip check` 无冲突，并在 3.10.12 的新环境里重跑了这个 smoke test。集群需要 NVIDIA 驱动支持 CUDA 11.8 或 12.4。
+- 转换器：OakInk 和 TACO 各转换 1-2 条真实序列，`preflight.py` 能正确读出数量并拦下缺训练数据的情况。
+- 早先的验证（600 步、论文指标对照）记录在这个文件的 git 历史里。

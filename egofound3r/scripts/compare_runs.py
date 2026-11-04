@@ -20,6 +20,11 @@ ROWS = [
     ("distance_vertex_mae_gt", "Distance MAE GT-contact, vertices (mm)", "low"),
     ("visibility_joint_f1", "Visibility F1, joints", "high"),
     ("visibility_vertex_f1", "Visibility F1, vertices", "high"),
+    ("future_5_contact_f1", "Future 0.5 s contact F1", "high"),
+    ("future_5_contact_ap", "Future 0.5 s contact AP", "high"),
+    ("future_5_hold_last_model_f1", "  reference: hold model's last frame", None),
+    ("future_5_hold_last_truth_f1", "  reference: hold true last frame", None),
+    ("future_5_distance_mae_mm", "Future 0.5 s distance MAE (mm)", "low"),
     ("windows", "Windows", None),
 ]
 

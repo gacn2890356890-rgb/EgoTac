@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from .data.dataset import ClipDataset
-from .metrics import MetricAccumulator
+from .metrics import FutureAccumulator, MetricAccumulator
 from .model import EgoTacModel
 
 
@@ -18,21 +18,28 @@ def run_evaluation(model: EgoTacModel, loader: DataLoader, device: torch.device,
     was_training = model.training
     model.eval()
     accumulator = MetricAccumulator()
+    future = FutureAccumulator() if model.world is not None else None
     for index, batch in enumerate(loader):
         if max_batches is not None and index >= max_batches:
             break
         tensors = {k: v.to(device, non_blocking=True) if torch.is_tensor(v) else v for k, v in batch.items()}
         outputs = model(tensors["images"], stride=stride)
         accumulator.update(outputs, tensors)
+        if future is not None:
+            future.update(model.predict_future(tensors["images"], stride=stride), tensors, model.world.past_frames)
     model.train(was_training)
-    return accumulator.summary()
+    report = accumulator.summary()
+    if future is not None:
+        for dataset, row in future.summary().items():
+            report.setdefault(dataset, {}).update(row)
+    return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upstream-config", required=True)
     parser.add_argument("--checkpoint", required=True, help="official EgoFound3R.pt or an EgoTac training checkpoint")
-    parser.add_argument("--variant", default="baseline", choices=["baseline", "diffusion"])
+    parser.add_argument("--variant", default="baseline", choices=["baseline", "world"])
     parser.add_argument("--clips", required=True)
     parser.add_argument("--split", default="test")
     parser.add_argument("--image-size", type=int, default=256)
@@ -47,7 +54,7 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     payload = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     is_egotac = "egotac_variant" in payload
-    options = payload.get("egotac_diffusion_options")
+    options = payload.get("egotac_world_options")
     del payload
     model = EgoTacModel(args.upstream_config, None if is_egotac else args.checkpoint, args.variant, options).to(device)
     if is_egotac:

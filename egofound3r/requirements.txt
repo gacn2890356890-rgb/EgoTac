@@ -1,10 +1,13 @@
-torch>=2.3
-torchvision>=0.18
-numpy>=1.24
-opencv-python-headless
-scipy
-Pillow
-tomli; python_version < "3.11"
-trimesh
-fast-simplification
-pytest
+# Python 3.10. Exact versions, installed by scripts/setup.sh on clean 3.10.10 and 3.10.12 interpreters.
+torch==2.6.0
+torchvision==0.21.0
+numpy==2.2.6
+opencv-python-headless==4.11.0.86
+scipy==1.15.3
+Pillow==11.3.0
+tomli==2.5.0
+trimesh==5.2.0
+fast-simplification==0.1.9
+remotezip==0.12.6
+huggingface_hub==1.33.0
+pytest==9.2.0

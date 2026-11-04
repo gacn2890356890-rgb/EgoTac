@@ -7,6 +7,10 @@ The current goal is to understand how prior work designs and deploys real-world 
 
 ---
 
+## EgoFound3R · November 4, 2026
+
+[EgoFound3R 原版与世界模型版的集群训练代码](egofound3r/README.md)
+
 ## Training code · November 3, 2026
 
 [训练代码与启动说明](training/README.md) · [外置数据格式](training/docs/data_format.md) · [下一轮架构实验](training/docs/next_experiments.md)

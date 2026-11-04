@@ -11,7 +11,7 @@ def upstream_root() -> Path:
     root = Path(env) if env else Path(__file__).resolve().parents[1] / "third_party" / "EgoFound3R"
     if not (root / "egohandmetric_prompt").is_dir():
         raise FileNotFoundError(
-            f"official EgoFound3R code not found at {root}; set EGOFOUND3R_ROOT or run scripts/setup_server.sh"
+            f"official EgoFound3R code not found at {root}; set EGOFOUND3R_ROOT or run scripts/setup.sh"
         )
     return root
 

@@ -15,6 +15,7 @@ import numpy as np
 import torch
 
 from .labels import point_visibility, points_to_mesh_distance, rasterize_depth
+from .splits import cap_test_rows
 
 CLIP_FRAMES = 21
 HAND_RATE_HZ = 10.0
@@ -151,6 +152,7 @@ def write_manifest(output_root: Path) -> Path:
         with np.load(path) as data:
             meta = json.loads(bytes(data["meta_json"]).decode())
         rows.append({"path": str(path.relative_to(output_root)), **{k: meta[k] for k in ("dataset", "sequence", "split")}})
+    rows = cap_test_rows(rows)
     manifest = output_root / "manifest.jsonl"
     with manifest.open("w") as handle:
         handle.writelines(json.dumps(row) + "\n" for row in rows)

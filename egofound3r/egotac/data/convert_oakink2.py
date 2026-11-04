@@ -5,7 +5,6 @@ quaternion MANO with flat_hand_mean=True and center_idx=0, cam_extr maps world t
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import pickle
 import shutil
@@ -20,6 +19,7 @@ import trimesh
 
 from .clip import CLIP_FRAMES, ClipMeta, FrameInput, build_clip, save_clip, write_manifest
 from .mano import ManoLayer, marker_ids_195, quat_to_rotmat
+from .splits import plan_splits
 
 COLOR_FPS = 30
 HAND_STEP = 3  # 30 Hz color down to the 10 Hz hand rate
@@ -61,19 +61,12 @@ def hand_world(anno: dict, mocap_ids: list[int], prefix: str, layer: ManoLayer, 
     return (verts - wrist + tsl[:, None]).cpu().numpy(), (joints - wrist + tsl[:, None]).cpu().numpy()
 
 
-def split_of(sequence: str, eval_fraction: float) -> str:
-    # Stable across machines and independent of which sequences are present.
-    bucket = int(hashlib.sha1(sequence.encode()).hexdigest(), 16) % 1000
-    return "test" if bucket < eval_fraction * 1000 else "train"
-
-
 def convert_sequence(root: Path, output: Path, seq: str, layers: dict, markers: np.ndarray, args, cache: dict) -> int:
     with open(root / "anno_preview" / f"{seq}.pkl", "rb") as handle:
         anno = pickle.load(handle)
     serial = {v: k for k, v in anno["cam_def"].items()}["egocentric"]
     frame_ids = anno["frame_id_list"]
-    split = args.force_split.get(seq) if args.force_split else None
-    split = split or split_of(seq, args.eval_fraction)
+    split = args.plan[seq]
     faces = layers["left"].faces.cpu().numpy()
     hop = CLIP_FRAMES if split == "test" else args.train_hop
     written = 0
@@ -153,7 +146,6 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--mano-dir", type=Path, required=True)
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--eval-fraction", type=float, default=0.05)
     parser.add_argument("--train-hop", type=int, default=10, help="window hop in hand-rate frames for the train split")
     parser.add_argument("--max-sequences", type=int, default=None)
     parser.add_argument("--test-sequences", nargs="*", default=[], help="force these sequences into the test split")
@@ -164,7 +156,6 @@ def main() -> None:
     if args.manifest_only:
         print(f"manifest: {write_manifest(args.output)}")
         return
-    args.force_split = {seq: "test" for seq in args.test_sequences}
     shard_index, shard_count = (int(part) for part in args.shard.split("/"))
     layers = {side: ManoLayer(args.mano_dir, side).to(args.device) for side in ("left", "right")}
     markers = marker_ids_195()
@@ -174,6 +165,8 @@ def main() -> None:
         sequences = sorted(p.stem for p in (args.root / "anno_preview").glob("*.pkl") if (args.root / "data" / p.stem).is_dir())
     if args.max_sequences:
         sequences = sequences[: args.max_sequences]
+    args.plan = {**plan_splits("oakink2", sequences), **{seq: "test" for seq in args.test_sequences}}
+    sequences = sorted(args.plan)
     cache: dict = {}
     for seq in sequences[shard_index::shard_count]:
         finished = args.output / "oakink2" / seq / "DONE"

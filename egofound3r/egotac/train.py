@@ -1,4 +1,4 @@
-"""Train EgoFound3R, original or diffusion variant, from one config.
+"""Train EgoFound3R, original or world-model variant, from one config.
 
 Single GPU:  python -m egotac.train --config configs/smoke.toml
 Multi GPU:   torchrun --nproc_per_node=8 -m egotac.train --config configs/full.toml
@@ -6,6 +6,7 @@ Multi GPU:   torchrun --nproc_per_node=8 -m egotac.train --config configs/full.t
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import os
@@ -13,37 +14,17 @@ import random
 import time
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python 3.10, which the official requirements also support
-    import tomli as tomllib
-
 import numpy as np
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
+from .config import accumulation_steps, load_config
 from .data.dataset import ClipDataset, MixedInfiniteSampler
 from .evaluate import run_evaluation
 from .losses import DEFAULT_WEIGHTS, total_loss
 from .model import EgoTacModel
-
-
-def load_config(path: Path, overrides: list[str]) -> dict:
-    with path.open("rb") as handle:
-        config = tomllib.load(handle)
-    for item in overrides:
-        key, _, raw = item.partition("=")
-        if not raw:
-            raise ValueError(f"--set expects section.key=value, got {item!r}")
-        section, _, name = key.partition(".")
-        try:
-            value = tomllib.loads(f"v = {raw}")["v"]
-        except tomllib.TOMLDecodeError:
-            value = raw
-        config.setdefault(section, {})[name] = value
-    return config
 
 
 def learning_rate(step: int, train: dict) -> float:
@@ -86,7 +67,7 @@ def main() -> None:
         (output / "config.json").write_text(json.dumps(config, indent=2))
 
     variant = train_cfg["variant"]
-    model = EgoTacModel(model_cfg["upstream_config"], model_cfg["checkpoint"], variant, config.get("diffusion")).to(device)
+    model = EgoTacModel(model_cfg["upstream_config"], model_cfg.get("checkpoint") or None, variant, config.get("world")).to(device)
     model.train()
     start_step = 0
     resume = output / "latest.pt"
@@ -103,6 +84,11 @@ def main() -> None:
         else model
     )
     parameters = model.trainable_parameters()
+    accumulate = accumulation_steps(train_cfg, world)
+    if rank == 0:
+        trainable = sum(p.numel() for p in parameters)
+        head = sum(p.numel() for p in model.world.parameters()) if model.world is not None else 0
+        print(f"trainable parameters {trainable:,} (world-model head {head:,}); total batch {train_cfg['batch_size'] * world * accumulate} = {train_cfg['batch_size']} x {world} GPUs x {accumulate} accumulation", flush=True)
     trainable_names = {name for name, parameter in model.marker.named_parameters() if parameter.requires_grad}
     optimizer = torch.optim.AdamW(parameters, lr=train_cfg["lr"], betas=(0.9, 0.999), eps=1e-8, weight_decay=train_cfg["weight_decay"])
 
@@ -147,26 +133,36 @@ def main() -> None:
         temporary.replace(output / name)
 
     for step in range(start_step, train_cfg["steps"]):
-        batch = to_device(next(iterator), device)
         for group in optimizer.param_groups:
             group["lr"] = learning_rate(step, train_cfg)
-        stride = int(stride_rng.choice(strides, p=np.array(stride_weights) / sum(stride_weights)))
-        phase = int(stride_rng.integers(0, stride))
-        outputs = wrapped(batch["images"], stride=stride, phase=phase, batch=batch)
-        loss, terms = total_loss(outputs, batch, weights, variant, alpha, outputs["global_anchor_indices"].to(device))
-        finite = torch.tensor(float(torch.isfinite(loss)), device=device)
-        if distributed:
-            # Every rank must agree, or the ones that skip would leave the others hanging in backward.
-            dist.all_reduce(finite, op=dist.ReduceOp.MIN)
         optimizer.zero_grad(set_to_none=True)
-        if finite.item() < 1.0:
+        step_loss = 0.0
+        all_finite = True
+        for micro in range(accumulate):
+            batch = to_device(next(iterator), device)
+            stride = int(stride_rng.choice(strides, p=np.array(stride_weights) / sum(stride_weights)))
+            phase = int(stride_rng.integers(0, stride))
+            # Gradients synchronize only on the last pass of an accumulated step.
+            sync = contextlib.nullcontext() if not distributed or micro == accumulate - 1 else wrapped.no_sync()
+            with sync:
+                outputs = wrapped(batch["images"], stride=stride, phase=phase, batch=batch)
+                loss, terms = total_loss(outputs, model.loss_targets(batch), weights, variant, alpha, outputs["global_anchor_indices"].to(device))
+                finite = torch.tensor(float(torch.isfinite(loss)), device=device)
+                if distributed:
+                    # Every rank must agree, or the ones that skip would leave the others hanging in backward.
+                    dist.all_reduce(finite, op=dist.ReduceOp.MIN)
+                if finite.item() < 1.0:
+                    all_finite = False
+                    break
+                (loss / accumulate).backward()
+            step_loss += float(loss.detach()) / accumulate
+        if not all_finite:
             skipped += 1
             print(f"rank {rank}: skipped step {step}, non-finite loss, {skipped} so far: {terms}", flush=True)
             if skipped > train_cfg.get("max_skipped_steps", 20):
                 raise FloatingPointError(f"more than {train_cfg.get('max_skipped_steps', 20)} non-finite steps; stopping")
             del outputs, loss
             continue
-        loss.backward()
         grad_norm = torch.nn.utils.clip_grad_norm_(parameters, train_cfg["grad_clip"])
         if not torch.isfinite(grad_norm):
             # clip_grad_norm_ would have scaled every gradient by NaN; updating here destroys the model.
@@ -179,7 +175,7 @@ def main() -> None:
 
         if rank == 0 and (step % train_cfg["log_every"] == 0 or step == train_cfg["steps"] - 1):
             row = {
-                "step": step, "loss": float(loss.detach()), "grad_norm": float(grad_norm), "lr": optimizer.param_groups[0]["lr"],
+                "step": step, "loss": step_loss, "grad_norm": float(grad_norm), "lr": optimizer.param_groups[0]["lr"],
                 "stride": stride, "seconds": round(time.time() - began, 1), **terms,
                 "peak_gib": round(torch.cuda.max_memory_allocated() / 2**30, 2) if device.type == "cuda" else 0.0,
             }

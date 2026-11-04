@@ -113,3 +113,51 @@ class MetricAccumulator:
                     row[f"contact_{level}_positive_rate"] = float(np.concatenate(pooled[f"contact_{level}_labels"]).mean())
             report[dataset] = row
         return report
+
+
+class FutureAccumulator:
+    """Future contact at each horizon, against two references that use no future information:
+    the model's own prediction at the last observed frame, and the ground truth at that frame."""
+
+    def __init__(self):
+        self.pooled = defaultdict(lambda: defaultdict(list))
+
+    def update(self, prediction: dict, batch: dict, past_frames: int) -> None:
+        labels = torch.cat([batch["contact_joints"], batch["contact_verts"]], dim=-1).transpose(1, 2).cpu() > 0.5
+        valid = torch.cat([batch["dist_joints_valid"], batch["dist_verts_valid"]], dim=-1).transpose(1, 2).cpu()
+        distance_mm = torch.cat([batch["dist_joints"], batch["dist_verts"]], dim=-1).transpose(1, 2).cpu() * 1000
+        probability = prediction["probability"].float().cpu()
+        predicted_mm = torch.expm1(prediction["log_distance"].float()).cpu()
+        last_model = prediction["last_probability"].float().cpu()
+        last_truth = labels[:, :, past_frames - 1]
+        for b, dataset in enumerate(batch["dataset"]):
+            store = self.pooled[dataset]
+            for step in range(probability.shape[2]):
+                t = past_frames + step
+                mask = valid[b, :, t] & valid[b, :, past_frames - 1]
+                if not mask.any():
+                    continue
+                label = labels[b, :, t][mask].numpy()
+                store[f"{step + 1}_label"].append(label)
+                store[f"{step + 1}_score"].append(probability[b, :, step][mask].numpy())
+                store[f"{step + 1}_hold_model"].append(last_model[b][mask].numpy())
+                store[f"{step + 1}_hold_truth"].append(last_truth[b][mask].numpy())
+                store[f"{step + 1}_abs_mm"].append(np.abs(predicted_mm[b, :, step][mask].numpy() - distance_mm[b, :, t][mask].numpy()))
+
+    def summary(self) -> dict:
+        report = {}
+        for dataset, store in self.pooled.items():
+            row = {}
+            for step in sorted({int(key.split("_")[0]) for key in store}):
+                label = np.concatenate(store[f"{step}_label"])
+                score = np.concatenate(store[f"{step}_score"])
+                model = _prf(score > 0.5, label)
+                hold_model = _prf(np.concatenate(store[f"{step}_hold_model"]) > 0.5, label)
+                hold_truth = _prf(np.concatenate(store[f"{step}_hold_truth"]), label)
+                row[f"future_{step}_contact_f1"] = model[2] if model else float("nan")
+                row[f"future_{step}_contact_ap"] = average_precision(score, label)
+                row[f"future_{step}_hold_last_model_f1"] = hold_model[2] if hold_model else float("nan")
+                row[f"future_{step}_hold_last_truth_f1"] = hold_truth[2] if hold_truth else float("nan")
+                row[f"future_{step}_distance_mae_mm"] = float(np.concatenate(store[f"{step}_abs_mm"]).mean())
+            report[dataset] = row
+        return report
