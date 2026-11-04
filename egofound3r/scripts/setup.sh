@@ -41,11 +41,21 @@ if [ -z "${TORCH_CUDA:-}" ]; then
 fi
 echo "installing packages with PyTorch build $TORCH_CUDA"
 # The official wheels bundle CUDA; the PyPI ones would pull several more gigabytes of NVIDIA packages.
+pip_install() {
+  # Large wheels over a slow link time out now and then; pip resumes from its cache on the next try.
+  local attempt
+  for attempt in 1 2 3 4 5; do
+    "$PY" -m pip install --quiet --timeout 120 --retries 10 "$@" && return 0
+    echo "pip attempt $attempt failed, retrying" >&2
+    sleep 15
+  done
+  return 1
+}
 torch_version=$(sed -n 's/^torch==//p' requirements.txt)
 vision_version=$(sed -n 's/^torchvision==//p' requirements.txt)
-"$PY" -m pip install --quiet --index-url "https://download.pytorch.org/whl/$TORCH_CUDA" \
+pip_install --index-url "https://download.pytorch.org/whl/$TORCH_CUDA" \
   --extra-index-url https://pypi.org/simple "torch==$torch_version+$TORCH_CUDA" "torchvision==$vision_version+$TORCH_CUDA"
-"$PY" -m pip install --quiet -r requirements.txt
+pip_install -r requirements.txt
 "$PY" -m pip check
 
 mkdir -p "$EGOTAC_ROOT"/{checkpoints,configs,data,outputs}
