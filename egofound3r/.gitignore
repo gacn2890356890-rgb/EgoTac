@@ -7,3 +7,7 @@ __pycache__/
 *.pt
 *.pth
 *.npz
+
+# The repository root ignores data/; this one is source code.
+!/egotac/data/
+!/egotac/data/**
