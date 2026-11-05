@@ -18,6 +18,7 @@ VARIANT=${1:?baseline or world}; shift
 export EGOFOUND3R_ROOT=$(tree_for_variant "$VARIANT")
 GPUS=$("$PY" -c "import torch; print(torch.cuda.device_count())")
 MASTER=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -1)
+bash scripts/download_weights.sh
 "$PY" scripts/preflight.py --config configs/full.toml "$@"
 ARGS=(--config configs/full.toml --set "train.variant=\"$VARIANT\"" --set "train.output_dir=\"$EGOTAC_ROOT/outputs/full_$VARIANT\"" "$@")
 srun --export=ALL bash -c '. "$SLURM_SUBMIT_DIR/scripts/env.sh"; exec "$PY" -m torch.distributed.run \

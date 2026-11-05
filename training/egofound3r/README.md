@@ -40,10 +40,6 @@ bash scripts/setup.sh
 ```
 
 ```bash
-bash scripts/download_weights.sh     # EgoFound3R.pt 需要先在 Hugging Face 申请权限
-```
-
-```bash
 sbatch -p <分区> scripts/slurm_convert.sbatch
 ```
 
@@ -53,6 +49,14 @@ sbatch -p <分区> scripts/slurm_train.sbatch baseline
 
 ```bash
 sbatch -p <分区> scripts/slurm_train.sbatch world
+```
+
+训练只需要 [VGGT-Omega 权重](https://huggingface.co/facebook/VGGT-Omega/blob/main/vggt_omega_1b_512.pt)，不需要 `EgoFound3R.pt`。提交训练时会自动下载，已有就跳过。这个文件要申请权限，所以要在 `cluster.env` 里填有权限账号的 `HF_TOKEN`；如果集群上已经有这个文件，填 `VGGT_CHECKPOINT` 就不会下载。计算节点不能上网时，先在登录节点运行 `bash scripts/download_weights.sh`。权重和训练结果都不进 git。
+
+训练完用自己的权重推理，命令和官方一样：
+
+```bash
+cd EgoFound3R_world && PYTHONPATH=$PWD ../.venv/bin/python infer_marker_video.py --config "$EGOTAC_ROOT/configs/default.toml" --video-path 视频.mp4 --checkpoint "$EGOTAC_ROOT/outputs/full_world/final.pt" --output-dir 输出目录
 ```
 
 MANO 文件需要自己从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 下载，放到 `MANO_DIR`。`scripts/preflight.py` 会在排队前检查权重、数据和序列数，有问题直接报错。任务被抢占后重新提交会从 `latest.pt` 续训。

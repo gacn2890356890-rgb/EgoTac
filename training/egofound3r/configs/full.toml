@@ -1,8 +1,9 @@
 # Full training at the paper's scale. Paths come from scripts/env.sh; see cluster.env.example.
 [model]
 upstream_config = "${EGOTAC_ROOT}/configs/default.toml"
-# Start from the official weights, as both versions did in the smoke test. Set to "" to train it from random initialization.
-checkpoint = "${EGOTAC_ROOT}/checkpoints/EgoFound3R.pt"
+# Our own training needs no EgoFound3R weights, only the frozen VGGT-Omega backbone. To start from the official
+# weights instead, point this at EgoFound3R.pt.
+checkpoint = ""
 
 [data]
 clips = "${EGOTAC_ROOT}/data/clips_full"

@@ -1,7 +1,7 @@
 # Short end-to-end run, identical for both variants except train.variant and train.output_dir.
 [model]
 upstream_config = "${EGOTAC_ROOT}/configs/default.toml"
-checkpoint = "${EGOTAC_ROOT}/checkpoints/EgoFound3R.pt"
+checkpoint = ""
 
 [data]
 clips = "${EGOTAC_ROOT}/data/clips_smoke"

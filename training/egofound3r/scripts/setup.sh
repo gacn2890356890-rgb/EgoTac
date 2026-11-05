@@ -74,4 +74,4 @@ EGOFOUND3R_ROOT="$REPO_DIR/EgoFound3R_world" "$PY" scripts/check_env.py
 bash scripts/verify_original.sh
 echo
 echo "Environment ready: $EGOTAC_VENV"
-echo "Next: bash scripts/download_weights.sh, then see README.md"
+echo "Next: see README.md"
