@@ -8,7 +8,7 @@ Only the 'train' clips carry hand poses, so both our splits come from them, divi
 Expected layout:
     <root>/train_aria/clip-001849.tar, <root>/clip_definitions.json, <root>/clip_splits.json
     <root>/object_models_eval/obj_000001.glb
-Not yet run on real HOT3D files.
+Checked on four real clips: labeled joints land on the hands in the rectified images, which keep Aria's sideways orientation.
 """
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ from .source import load_mesh_tris, run
 
 FPS = 30.0
 STREAM = "214-1"
+_MAPS: dict = {}
 
 
 def discover(root: Path) -> dict[str, str]:
@@ -68,7 +69,11 @@ def fisheye624_map(width: int, height: int, f: float, cx: float, cy: float, coef
 def rectify(camera_json: dict, rgb: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     calibration = camera_json["calibration"]
     f, cx, cy = calibration["projection_params"][:3]
-    map_x, map_y = fisheye624_map(calibration["image_width"], calibration["image_height"], f, cx, cy, calibration["projection_params"][3:])
+    key = tuple(calibration["projection_params"])
+    if key not in _MAPS:  # one calibration per recording, and computing the map takes most of a frame's time
+        _MAPS.clear()
+        _MAPS[key] = fisheye624_map(calibration["image_width"], calibration["image_height"], f, cx, cy, calibration["projection_params"][3:])
+    map_x, map_y = _MAPS[key]
     K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]], dtype=np.float64)
     return cv2.remap(rgb, map_x, map_y, cv2.INTER_LINEAR), K
 

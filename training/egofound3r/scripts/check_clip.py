@@ -28,7 +28,7 @@ def main() -> None:
                 cv2.circle(image, center, 3, COLORS[side], -1)
         panels.append(image)
     cv2.imwrite(output, np.concatenate(panels, axis=1))
-    print(f"wrote {output}; the dots should sit on the hands (red left, blue right, in BGR)")
+    print(f"wrote {output}; the dots should sit on the hands (blue left, orange right)")
 
 
 if __name__ == "__main__":

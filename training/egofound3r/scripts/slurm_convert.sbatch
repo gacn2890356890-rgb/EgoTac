@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage, from the repository root: sbatch -p <partition> scripts/slurm_convert.sbatch [workers]
-# The compute node needs internet. If it has none, run scripts/convert_all.sh on a node that does.
+# Reads the DATA_* paths in cluster.env. No internet needed.
 #SBATCH --job-name=egotac-convert
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
