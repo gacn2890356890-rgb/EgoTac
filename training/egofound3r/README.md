@@ -5,7 +5,7 @@
 | 目录 | 内容 |
 |---|---|
 | `EgoFound3R_original/` | 官方代码（[MINT-SJTU/EgoFound3R](https://github.com/MINT-SJTU/EgoFound3R)，commit `264f4df`），一个字节都没改。`scripts/verify_original.sh` 可以核对。 |
-| `EgoFound3R_world/` | 同样的代码，只多了 `egohandmetric_prompt/world_model.py`，并写死了 `requirements.txt` 的版本。 |
+| `EgoFound3R_world/` | 同样的代码，多了 `egohandmetric_prompt/world_model.py`，`infer_marker_video.py` 加了两行来加载世界模型头，并写死了 `requirements.txt` 的版本。推理命令和官方完全一样，只是 `--checkpoint` 换成世界模型版的权重。 |
 | `egotac/` | 两个版本共用的训练、数据和评估代码。 |
 
 **官方仓库只有推理代码**，没有训练脚本、数据加载器和数据配置：它的 `data/` 目录里只有 MANO 相关的小文件，`configs/default.toml` 只有模型和运行参数。所以 `egotac/` 是按论文（Eq. 3-8、Table 5、Table 7）补写的，不是官方代码。

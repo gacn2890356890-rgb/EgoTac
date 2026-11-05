@@ -198,3 +198,15 @@ class WorldModelHooks:
                 dtype=outputs[f"{prefix}_contact_conf"].dtype
             )
         return replaced
+
+
+def attach_world_head(model: nn.Module, checkpoint_path) -> WorldModelHooks | None:
+    """Install the head stored in a world checkpoint. An official checkpoint has none and runs unchanged."""
+    payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    if "egotac_world_head" not in payload:
+        return None
+    options = payload["egotac_world_options"]
+    head = WorldModelHead(options.get("dim", 512), options.get("layers", 8), options.get("heads", 8), options.get("dynamics_layers", 4), options["past_frames"], options["horizon"])
+    head.load_state_dict(payload["egotac_world_head"])
+    # Held by the hooks, not registered on the model: official code requires one dtype inside it.
+    return WorldModelHooks(model, head.float().to(next(model.parameters()).device).eval(), options)

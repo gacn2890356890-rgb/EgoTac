@@ -777,6 +777,9 @@ def main() -> None:
             model_config=active_marker_model_config(project_config),
             align_model_floating_dtype=True,
         )
+        from egohandmetric_prompt.world_model import attach_world_head
+
+        attach_world_head(model, args.checkpoint)
     model.eval()
     from egohandmetric_prompt.temporal_rate_contract import TemporalRateContract
     from infer_marker_multiclip import run_long_video_inference
