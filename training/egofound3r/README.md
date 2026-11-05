@@ -1,6 +1,6 @@
 # EgoFound3R：原版与世界模型版
 
-同一个代码库的两个版本，用于在集群上做全量训练。
+同一个代码库的两个版本，用于在 GPU 服务器上做全量训练。
 
 **训练步骤见 [TRAINING.md](TRAINING.md)。**
 
@@ -29,7 +29,7 @@
 - 新增损失：`tactile_flow`、`future_flow`、`future_visual`。
 - 全量配置下可训练参数约 2.64 亿，其中头部 5266 万；原版约 2.12 亿。原版架构不改，否则加载不了官方权重。
 
-## 集群上怎么跑
+## 怎么跑
 
 Python 写死为 3.10.12（见 `.python-version`，其他版本会直接报错），依赖版本全部写死在 `requirements.txt`，即使系统 Python 没有 pip 也能装。在仓库的 `training/egofound3r/` 目录下执行：
 
@@ -42,18 +42,18 @@ bash scripts/setup.sh
 ```
 
 ```bash
-sbatch -p <分区> scripts/slurm_convert.sbatch
+bash scripts/convert_all.sh
 ```
 
 ```bash
-sbatch -p <分区> scripts/slurm_train.sbatch baseline
+bash scripts/train_full.sh baseline 8
 ```
 
 ```bash
-sbatch -p <分区> scripts/slurm_train.sbatch world
+bash scripts/train_full.sh world 8
 ```
 
-训练只需要 [VGGT-Omega 权重](https://huggingface.co/facebook/VGGT-Omega/blob/main/vggt_omega_1b_512.pt)，不需要 `EgoFound3R.pt`。提交训练时会自动下载，已有就跳过。这个文件要申请权限，所以要在 `cluster.env` 里填有权限账号的 `HF_TOKEN`；如果集群上已经有这个文件，填 `VGGT_CHECKPOINT` 就不会下载。计算节点不能上网时，先在登录节点运行 `bash scripts/download_weights.sh`。权重和训练结果都不进 git。
+训练只需要 [VGGT-Omega 权重](https://huggingface.co/facebook/VGGT-Omega/blob/main/vggt_omega_1b_512.pt)，不需要 `EgoFound3R.pt`。开始训练时会自动下载，已有就跳过。这个文件要申请权限，所以要在 `cluster.env` 里填有权限账号的 `HF_TOKEN`；如果服务器上已经有这个文件，填 `VGGT_CHECKPOINT` 就不会下载。权重和训练结果都不进 git。
 
 训练完用自己的权重推理，命令和官方一样：
 
@@ -61,7 +61,7 @@ sbatch -p <分区> scripts/slurm_train.sbatch world
 cd EgoFound3R_world && PYTHONPATH=$PWD ../.venv/bin/python infer_marker_video.py --config "$EGOTAC_ROOT/configs/default.toml" --video-path 视频.mp4 --checkpoint "$EGOTAC_ROOT/outputs/full_world/final.pt" --output-dir 输出目录
 ```
 
-MANO 文件需要自己从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 下载，放到 `MANO_DIR`。`scripts/preflight.py` 会在排队前检查权重、数据和序列数，有问题直接报错。任务被抢占后重新提交会从 `latest.pt` 续训。
+MANO 文件需要自己从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 下载，放到 `MANO_DIR`。`scripts/preflight.py` 会在训练前检查权重、数据和序列数，有问题直接报错。中断后重新运行同一条命令会从 `latest.pt` 续训。
 
 ## 训练参数
 
@@ -70,7 +70,7 @@ MANO 文件需要自己从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 下�
 `train.batch_size` 是每张卡的 batch，默认 8。显存不够就调小，梯度累积会自动补足总 batch 64，例如：
 
 ```bash
-sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
+bash scripts/train_full.sh world 8 --set train.batch_size=4
 ```
 
 实测峰值显存（TITAN RTX，stride 5，每卡 batch 2）：原版 15.9 GiB，世界模型版 19.3 GiB。stride 越小越占显存：24 GB 卡上 stride 1 和 2 在 batch 2 就会爆显存。
@@ -79,7 +79,7 @@ sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
 
 规模按论文 Table 7。论文的训练序列共 3335 条，加上全部 STERA-10M；评估共 2378 个窗口。
 
-代码不下载任何数据，只读集群上已有的文件：在 `cluster.env` 里填好 `DATA_*` 路径（见 `cluster.env.example`），再运行 `scripts/slurm_convert.sbatch`。这些目录只读，转换结果写到 `$EGOTAC_ROOT/data/clips_full`。
+代码不下载任何数据，只读服务器上已有的文件：在 `cluster.env` 里填好 `DATA_*` 路径（见 `cluster.env.example`），再运行 `scripts/convert_all.sh`。这些目录只读，转换结果写到 `$EGOTAC_ROOT/data/clips_full`。
 
 | 数据集 | 路径变量 | 训练序列 | 评估窗口 | 真实数据验证 |
 |---|---|---|---|---|
@@ -91,7 +91,7 @@ sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
 | ARCTIC | `DATA_ARCTIC` | 226 | 434 | **未验证** |
 | STERA-10M | 无 | 全部 | 无 | **没有转换器** |
 
-每个转换器开头写了它期望的目录结构。**未验证**的转换器是照官方文档和官方代码写的，只用合成数据测过。第一次在集群上运行时，先转几条并用眼睛检查：
+每个转换器开头写了它期望的目录结构。**未验证**的转换器是照官方文档和官方代码写的，只用合成数据测过。第一次运行时，先转几条并用眼睛检查：
 
 ```bash
 "$EGOTAC_VENV/bin/python" -m egotac.data.convert_h2o --root "$DATA_H2O" --object-dir "$DATA_H2O_OBJECTS" --output /tmp/h2o_check --mano-dir "$MANO_DIR" --limit 3
@@ -113,7 +113,7 @@ sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
 
 结果见 [docs/smoke_results.md](docs/smoke_results.md)。
 
-- **没有跑过：** 真正的全量训练、真实集群上的 Slurm（只用替身命令测过脚本）、完整数据的转换（只测过每个数据集 1-2 条序列）。
+- **没有跑过：** 真正的全量训练、完整数据的转换（只测过每个数据集 1-2 条序列）。
 - **没有实现：** 场景深度和尺度的监督。相机空间的手部结果不依赖它，世界坐标指标会受影响。
 
 官方代码和权重是 CC BY-NC-SA 4.0，不可商用；权重和数据不进仓库。

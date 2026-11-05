@@ -25,17 +25,17 @@ cp cluster.env.example cluster.env
 
 | 变量 | 内容 |
 |---|---|
-| `EGOTAC_ROOT` | 大容量存储，放权重、转换后的数据和训练结果，所有节点都要能访问 |
+| `EGOTAC_ROOT` | 大容量存储，放权重、转换后的数据和训练结果 |
 | `MANO_DIR` | `MANO_LEFT.pkl` 和 `MANO_RIGHT.pkl` 所在目录，从 [mano.is.tue.mpg.de](https://mano.is.tue.mpg.de) 获取 |
 | `HF_TOKEN` 或 `VGGT_CHECKPOINT` | 用于获取 VGGT-Omega 权重，见 [Checkpoints](#checkpoints) |
-| `DATA_*` | 集群上各数据集的路径，见 [Data](#data) |
+| `DATA_*` | 服务器上各数据集的路径，见 [Data](#data) |
 
 ## Checkpoints
 
-- **VGGT-Omega**：冻结的几何主干，训练必需。提交训练时会自动下载 [`vggt_omega_1b_512.pt`](https://huggingface.co/facebook/VGGT-Omega/blob/main/vggt_omega_1b_512.pt)（4.6 GB），已有就跳过。这个文件要申请权限，所以要在 `cluster.env` 里填有权限账号的 `HF_TOKEN`；如果集群上已有这个文件，填 `VGGT_CHECKPOINT` 指向它就不会下载。
+- **VGGT-Omega**：冻结的几何主干，训练必需。开始训练时会自动下载 [`vggt_omega_1b_512.pt`](https://huggingface.co/facebook/VGGT-Omega/blob/main/vggt_omega_1b_512.pt)（4.6 GB），已有就跳过。这个文件要申请权限，所以要在 `cluster.env` 里填有权限账号的 `HF_TOKEN`；如果服务器上已有这个文件，填 `VGGT_CHECKPOINT` 指向它就不会下载。
 - **EgoFound3R**：训练不需要。除 VGGT-Omega 外，其余部分都从随机初始化开始训练。如果想从官方权重开始，把 `configs/full.toml` 里的 `checkpoint` 指向 [`EgoFound3R.pt`](https://huggingface.co/Frank-F2021/EgoFound3R)。
 
-计算节点不能上网时，先在登录节点下载一次：
+也可以提前手动下载：
 
 ```bash
 bash scripts/download_weights.sh
@@ -46,7 +46,7 @@ bash scripts/download_weights.sh
 代码不下载数据，只读取 `DATA_*` 指向的目录，转换结果写到 `$EGOTAC_ROOT/data/clips_full`。序列数和窗口数按论文 Table 7，每个转换器开头写了它期望的目录结构。
 
 ```bash
-sbatch -p <分区> scripts/slurm_convert.sbatch
+bash scripts/convert_all.sh
 ```
 
 | 数据集 | 路径变量 | 训练序列 | 评估窗口 | 转换器 |
@@ -71,32 +71,32 @@ sbatch -p <分区> scripts/slurm_convert.sbatch
 
 ## Usage
 
-训练世界模型版：
-
-```bash
-sbatch -p <分区> scripts/slurm_train.sbatch world
-```
-
-训练原版：
-
-```bash
-sbatch -p <分区> scripts/slurm_train.sbatch baseline
-```
-
-不用 Slurm 时，在单机上指定 GPU 数量：
+训练世界模型版，最后的数字是 GPU 数量：
 
 ```bash
 bash scripts/train_full.sh world 8
 ```
 
-提交后会先获取 VGGT-Omega 权重，再检查权重、数据和序列数，有问题直接报错。默认配置来自论文 Table 5：AdamW，学习率 2.5e-4 余弦衰减到 1e-5，warmup 100 步，共 3200 步，输入 256x256，梯度裁剪 1.0，总 batch 64。
+训练原版：
+
+```bash
+bash scripts/train_full.sh baseline 8
+```
+
+只用其中几张卡时：
+
+```bash
+CUDA_VISIBLE_DEVICES=0,1,2,3 bash scripts/train_full.sh world 4
+```
+
+启动后会先获取 VGGT-Omega 权重，再检查权重、数据和序列数，有问题直接报错。默认配置来自论文 Table 5：AdamW，学习率 2.5e-4 余弦衰减到 1e-5，warmup 100 步，共 3200 步，输入 256x256，梯度裁剪 1.0，总 batch 64。
 
 结果写到 `$EGOTAC_ROOT/outputs/full_<baseline|world>/`：
 
 | 文件 | 内容 |
 |---|---|
 | `final.pt` | 训练完成后的权重，用于评估和推理 |
-| `latest.pt` | 每 200 步保存一次，任务中断后重新提交会从这里续训 |
+| `latest.pt` | 每 200 步保存一次，中断后重新运行同一条命令会从这里续训 |
 | `train_log.jsonl` | 每 20 步的损失和学习率 |
 | `eval_log.jsonl` | 每 400 步的评估指标 |
 | `config.json` | 这次训练的完整配置 |
@@ -111,12 +111,11 @@ bash scripts/train_full.sh world 8
 | `--set train.save_every=100` | 保存 `latest.pt` 的间隔（默认 200） |
 | `--set train.eval_every=0` | 评估间隔（默认 400），0 表示训练中不评估 |
 | `--set data.weights.hoi4d=0` | 不使用某个数据集。这样就不是论文规模了 |
-| `sbatch --nodes=2 --gpus-per-node=4` | 节点数和每个节点的 GPU 数（默认 1 个节点 8 张卡） |
 
-`--set` 写在命令最后，例如：
+`--set` 写在 GPU 数量后面，例如：
 
 ```bash
-sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
+bash scripts/train_full.sh world 8 --set train.batch_size=4
 ```
 
 实测峰值显存（TITAN RTX，stride 5，每卡 batch 2）：原版 15.9 GiB，世界模型版 19.3 GiB。stride 越小越占显存，24 GB 的卡在 stride 1 和 2、batch 2 时就会爆显存。
@@ -148,7 +147,7 @@ sbatch -p <分区> scripts/slurm_train.sbatch world --set train.batch_size=4
 ## Status
 
 - **验证过：** 环境安装，以及两个版本在少量真实数据上的短训练、评估和推理。
-- **没有跑过：** 全量训练、全量数据转换、真实集群上的 Slurm 提交、从 Hugging Face 真实下载 VGGT-Omega。
+- **没有跑过：** 全量训练、全量数据转换、从 Hugging Face 真实下载 VGGT-Omega。
 - **没有实现：** STERA-10M 的转换器，以及场景深度和尺度的监督。相机空间的手部结果不依赖后者，世界坐标指标会受影响。
 - **论文没公开、由我们决定：** 除 `geom` 外的损失权重、数据集和 stride 的采样比例、可见性定义、256x256 的裁剪方式，以及世界模型的全部设计。官方也没有公开序列名单，所以数据集数量和定义与论文一致，但不保证与作者逐条相同。
 
