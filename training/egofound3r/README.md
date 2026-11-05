@@ -2,6 +2,8 @@
 
 同一个代码库的两个版本，用于在集群上做全量训练。
 
+**训练步骤见 [TRAINING.md](TRAINING.md)。**
+
 | 目录 | 内容 |
 |---|---|
 | `EgoFound3R_original/` | 官方代码（[MINT-SJTU/EgoFound3R](https://github.com/MINT-SJTU/EgoFound3R)，commit `264f4df`），一个字节都没改。`scripts/verify_original.sh` 可以核对。 |
